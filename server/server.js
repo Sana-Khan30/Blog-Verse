@@ -14,13 +14,13 @@ connectDB();
 const app = express();
 
 app.use((req, res, next) => {
-  const allowed = [
-    'http://localhost:5173',
-    'http://localhost:5174',
-    'http://localhost:3000',
-    'https://blog-verse-xslt.vercel.app',
-    process.env.CLIENT_URL,
-  ].filter(Boolean);
+ const allowed = [
+  'http://localhost:5173',
+  'http://localhost:5174',
+  'http://localhost:3000',
+  'https://blog-verse-xslt.vercel.app',
+  process.env.CLIENT_URL,
+].filter(Boolean);
 
   const origin = req.headers.origin;
   if (allowed.includes(origin)) {
