@@ -6,7 +6,9 @@ import { ThemeProvider } from "./context/ThemeContext.jsx";
 import Layout from "./components/common/Layout.jsx";
 import ProtectedRoute from "./routes/ProtectedRoute.jsx";
 import ScrollProgress from "./components/ui/ScrollProgress.jsx";
-import CursorGlow from "./components/ui/CursorGlow.jsx";
+import CustomCursor from "./components/interactive/CustomCursor.jsx";
+import { LenisProvider } from "./components/ui/LenisProvider.jsx";
+
 import AdminPanel from "./pages/AdminPanel.jsx";
 import NotFound from "./pages/NotFound.jsx";
 import Home from "./pages/Home.jsx";
@@ -22,9 +24,9 @@ const AppContent = () => {
   const location = useLocation();
 
   return (
-    <>
+    <LenisProvider>
       {/* Global UI Elements */}
-      <CursorGlow />
+      <CustomCursor /> 
       <ScrollProgress />
 
       {/* Page Transitions */}
@@ -80,7 +82,7 @@ const AppContent = () => {
           />
         </Routes>
       </AnimatePresence>
-    </>
+    </LenisProvider>
   );
 };
 
@@ -89,18 +91,19 @@ const App = () => (
     <ThemeProvider>
       <AuthProvider>
         <Toaster
-          position="top-right"
-          toastOptions={{
-            duration: 3000,
-            style: {
-              borderRadius: "12px",
-              fontFamily: "Inter, sans-serif",
-              background: "#1f1f2a",
-              color: "#f1f5f9",
-              border: "1px solid rgba(255,255,255,0.1)",
-            },
-          }}
-        />
+  position="top-right"
+  toastOptions={{
+    duration: 3000,
+    style: {
+      borderRadius: "12px",
+      fontFamily: "Inter, sans-serif",
+      background: "var(--surface)",
+      color: "var(--text)",
+      border: "1px solid var(--border-2)",
+      backdropFilter: "blur(20px)",
+    },
+  }}
+/>
         <Layout>
           <AppContent />
         </Layout>
@@ -108,5 +111,6 @@ const App = () => (
     </ThemeProvider>
   </BrowserRouter>
 );
+
 
 export default App;

@@ -1,316 +1,514 @@
-import { motion, useMotionValue, useTransform } from "framer-motion";
-import { Link } from "react-router-dom";
-import { useState, useRef } from "react";
-import { useAuth } from "../../context/AuthContext.jsx";
-import { useBookmark } from "../../hooks/useBookmark.js";
-import { toggleLike } from "../../api/blogApi.js";
-import toast from "react-hot-toast";
+import { motion, useMotionValue, useTransform, useSpring } from 'framer-motion';
+import { Link } from 'react-router-dom';
+import { useState, useRef, useCallback } from 'react';
+import { useAuth } from '../../context/AuthContext.jsx';
+import { useBookmark } from '../../hooks/useBookmark.js';
+import { toggleLike } from '../../api/blogApi.js';
+import toast from 'react-hot-toast';
 import {
   FiHeart, FiMessageCircle, FiEye, FiClock,
   FiBookmark, FiShare2, FiArrowUpRight
-} from "react-icons/fi";
+} from 'react-icons/fi';
 
+/* ─────────────────────────────────────────────────
+   Category accent palette
+───────────────────────────────────────────────── */
+const CAT_ACCENT = {
+  Technology:   '#06b6d4',
+  Programming:  '#a78bfa',
+  Design:       '#f472b6',
+  Business:     '#f59e0b',
+  Lifestyle:    '#22c55e',
+  Health:       '#f87171',
+  Travel:       '#2dd4bf',
+  Food:         '#fb923c',
+  Other:        '#94a3b8',
+};
+const catColor = (c) => CAT_ACCENT[c] || CAT_ACCENT.Other;
+
+/* ─────────────────────────────────────────────────
+   Helpers
+───────────────────────────────────────────────── */
+const readingTime = (content = '') =>
+  Math.max(1, Math.ceil(
+    content.replace(/<[^>]*>/g, '').split(/\s+/).filter(Boolean).length / 200
+  ));
+
+const fmtDate = (d) =>
+  new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+
+const fmtCount = (n) => (n > 999 ? `${(n / 1000).toFixed(1)}k` : n);
+
+/* ─────────────────────────────────────────────────
+   BLOG CARD
+   Fixes from audit:
+   • 3D tilt — moved from rotateX/rotateY on the wrapper
+     to a translateX/translateY parallax on the inner image only.
+     Reason: rotateX/Y + transformStyle:preserve-3d causes Safari
+     z-index stacking bugs and forced compositing on ALL children.
+     The new approach gives the same "depth" feel with no side-effects.
+   • useSpring on the tilt values → natural deceleration
+   • Glow halo stays (it's great), but uses CSS transition not RAF
+   • Mobile: 3D effect is disabled via a pointer-coarse media check
+───────────────────────────────────────────────── */
 const BlogCard = ({ blog, index = 0, onBookmark }) => {
-  const { user } = useAuth();
+  const { user }                         = useAuth();
   const { isBookmarked, toggleBookmark } = useBookmark();
-  const cardRef = useRef(null);
+  const cardRef                          = useRef(null);
 
-  const [isHovered, setIsHovered] = useState(false);
-  const [liked, setLiked] = useState(() => blog.likes?.includes(user?._id));
+  const [isHovered,  setIsHovered]  = useState(false);
+  const [liked,      setLiked]      = useState(() => blog.likes?.includes(user?._id));
   const [likesCount, setLikesCount] = useState(blog.likes?.length || 0);
-  const [likeAnim, setLikeAnim] = useState(false);
+  const [likeAnim,   setLikeAnim]   = useState(false);
+  const [actionsVisible, setActionsVisible] = useState(false);
 
-  // 3D tilt values
-  const mouseX = useMotionValue(0);
-  const mouseY = useMotionValue(0);
-  const rotateX = useTransform(mouseY, [-0.5, 0.5], [5, -5]);
-  const rotateY = useTransform(mouseX, [-0.5, 0.5], [-5, 5]);
+  /* ── Parallax tilt (image only, not full card) ── */
+  const isFine = typeof window !== 'undefined'
+    ? !window.matchMedia('(pointer: coarse)').matches
+    : true;
 
-  const handleMouseMove = (e) => {
-    if (!cardRef.current) return;
-    const rect = cardRef.current.getBoundingClientRect();
-    const centerX = rect.left + rect.width / 2;
-    const centerY = rect.top + rect.height / 2;
-    mouseX.set((e.clientX - centerX) / rect.width);
-    mouseY.set((e.clientY - centerY) / rect.height);
+  const rawX = useMotionValue(0);
+  const rawY = useMotionValue(0);
+  const imgX = useSpring(useTransform(rawX, [-0.5, 0.5], [-8,  8]),  { stiffness: 200, damping: 30 });
+  const imgY = useSpring(useTransform(rawY, [-0.5, 0.5], [-6,  6]),  { stiffness: 200, damping: 30 });
+
+  const handleMouseMove = useCallback((e) => {
+    if (!isFine || !cardRef.current) return;
+    const { left, top, width, height } = cardRef.current.getBoundingClientRect();
+    rawX.set((e.clientX - left - width  / 2) / width);
+    rawY.set((e.clientY - top  - height / 2) / height);
+  }, [isFine, rawX, rawY]);
+
+  const handleMouseEnter = () => {
+    setIsHovered(true);
+    setTimeout(() => setActionsVisible(true), 60);
   };
 
   const handleMouseLeave = () => {
-    mouseX.set(0);
-    mouseY.set(0);
+    rawX.set(0);
+    rawY.set(0);
+    setIsHovered(false);
+    setActionsVisible(false);
   };
 
+  /* ── Actions ── */
   const handleLike = async (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (!user) {
-      toast.error('Login to like blogs!', { icon: '🔒' });
-      return;
-    }
-    setLiked(v => !v);
-    setLikesCount(v => liked ? v - 1 : v + 1);
+    e.preventDefault(); e.stopPropagation();
+    if (!user) { toast.error('Login to like!', { icon: '🔒' }); return; }
+    const wasLiked = liked;
+    setLiked(!wasLiked);
+    setLikesCount(v => wasLiked ? v - 1 : v + 1);
     setLikeAnim(true);
     setTimeout(() => setLikeAnim(false), 600);
-
     try {
       const { data } = await toggleLike(blog._id);
       setLiked(data.isLiked);
       setLikesCount(data.likesCount);
     } catch {
-      setLiked(v => !v);
-      setLikesCount(v => liked ? v + 1 : v - 1);
+      setLiked(wasLiked);
+      setLikesCount(v => wasLiked ? v + 1 : v - 1);
     }
   };
 
   const handleBookmark = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (!user) {
-      toast.error('Login to bookmark!', { icon: '🔒' });
-      return;
-    }
+    e.preventDefault(); e.stopPropagation();
+    if (!user) { toast.error('Login to bookmark!', { icon: '🔒' }); return; }
     toggleBookmark(blog._id);
-    const currentlyBookmarked = isBookmarked(blog._id);
-    toast.success(currentlyBookmarked ? 'Removed from bookmarks' : 'Bookmarked!', {
-      icon: currentlyBookmarked ? '🔖' : '✨',
-    });
-    onBookmark?.(blog._id, !currentlyBookmarked);
+    const was = isBookmarked(blog._id);
+    toast.success(was ? 'Removed from bookmarks' : 'Bookmarked!', { icon: was ? '🔖' : '✨' });
+    onBookmark?.(blog._id, !was);
   };
 
   const handleShare = async (e) => {
-    e.preventDefault();
-    e.stopPropagation();
+    e.preventDefault(); e.stopPropagation();
     try {
       await navigator.clipboard.writeText(`${window.location.origin}/blog/${blog.slug}`);
       toast.success('Link copied!', { icon: '🔗' });
-    } catch {
-      toast.error('Failed to copy link');
-    }
+    } catch { toast.error('Failed to copy link'); }
   };
 
-  const handleMouseEnter = () => setIsHovered(true);
-
-  const readingTime = Math.max(1, Math.ceil((blog.content || '').replace(/<[^>]*>/g,'').split(/\s+/).filter(Boolean).length / 200));
-
-  const formatDate = (date) => new Date(date).toLocaleDateString("en-US", {
-    month: "short", day: "numeric", year: "numeric",
-  });
-
+  const minutes   = readingTime(blog.content);
   const bookmarked = isBookmarked(blog._id);
+  const accent     = catColor(blog.category);
 
   return (
     <motion.div
       ref={cardRef}
-      initial={{ opacity: 0, y: 50 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true, margin: '-60px' }}
-      transition={{ duration: 0.5, delay: (index || 0) * 0.1, ease: [0.16, 1, 0.3, 1] }}
+      initial={{ opacity: 0, y: 36 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{
+        duration: 0.55,
+        delay:    Math.min(index * 0.07, 0.42),
+        ease:     [0.16, 1, 0.3, 1],
+      }}
+      onMouseMove={handleMouseMove}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
-      onMouseMove={handleMouseMove}
-      style={{
-        rotateX,
-        rotateY,
-        transformStyle: "preserve-3d",
-      }}
-      className="group relative"
+      style={{ position: 'relative', height: '100%' }}
     >
-      {/* Glow effect on hover */}
-      <div
-        className={`absolute -inset-1 bg-gradient-to-r from-violet-600 via-purple-500 to-cyan-500 rounded-3xl blur-xl opacity-0 transition-opacity duration-500 ${
-          isHovered ? 'opacity-25' : 'opacity-0'
-        }`}
-      />
+      {/* ── Ambient glow halo ── */}
+      <div style={{
+        position:      'absolute',
+        inset:         -6,
+        borderRadius:  30,
+        background:    `radial-gradient(ellipse at center, ${accent}22 0%, transparent 70%)`,
+        filter:        'blur(18px)',
+        opacity:       isHovered ? 1 : 0,
+        transition:    'opacity 0.5s ease',
+        pointerEvents: 'none',
+        zIndex:        0,
+      }} />
 
-      <div
-        className={`relative h-full glass-dark rounded-3xl overflow-hidden transition-all duration-500 border ${
-          isHovered ? 'border-violet-500/30' : 'border-white/5'
-        }`}
-      >
-        {/* Cover Image */}
-        <Link to={`/blog/${blog.slug}`} className="block">
-          <div className="relative h-52 overflow-hidden bg-gradient-to-br from-violet-900/50 to-gray-900">
+      {/* ── Card shell ── */}
+      <div style={{
+        position:     'relative',
+        height:       '100%',
+        display:      'flex',
+        flexDirection: 'column',
+        background:   'var(--surface)',
+        border:       isHovered ? `1px solid ${accent}50` : '1px solid var(--border)',
+        borderRadius: 24,
+        overflow:     'hidden',
+        transition:   'border-color 0.35s ease, box-shadow 0.35s ease',
+        boxShadow:    isHovered
+          ? `0 24px 60px rgba(0,0,0,0.14), 0 0 0 1px ${accent}18`
+          : '0 2px 12px rgba(0,0,0,0.05)',
+        zIndex: 1,
+      }}>
+
+        {/* ── Image area ── */}
+        <Link to={`/blog/${blog.slug}`} style={{ display: 'block', textDecoration: 'none' }}>
+          <div style={{
+            position: 'relative',
+            height:   208,
+            overflow: 'hidden',
+            background: `linear-gradient(135deg, ${accent}20, var(--bg-3))`,
+          }}>
             {blog.coverImage ? (
+              /* Parallax: only the image translates — not the whole card */
               <motion.img
                 src={blog.coverImage}
                 alt={blog.title}
-                className="w-full h-full object-cover"
-                animate={{ scale: isHovered ? 1.08 : 1 }}
-                transition={{ duration: 0.6 }}
+                style={{
+                  width:  '110%',   // oversized so translation doesn't reveal edges
+                  height: '110%',
+                  objectFit: 'cover',
+                  display: 'block',
+                  marginLeft: '-5%',
+                  marginTop:  '-5%',
+                  x: isFine ? imgX : 0,
+                  y: isFine ? imgY : 0,
+                  scale: isHovered ? 1.04 : 1,
+                  transition: 'scale 0.6s ease',
+                }}
               />
             ) : (
-              <div className="w-full h-full flex items-center justify-center">
-                <span className="text-7xl opacity-30">✦</span>
+              /* Gradient placeholder */
+              <div style={{
+                width:   '100%',
+                height:  '100%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}>
+                <span style={{
+                  fontFamily: "'Bebas Neue', serif",
+                  fontSize:   80,
+                  color:      accent,
+                  opacity:    0.18,
+                  lineHeight: 1,
+                  userSelect: 'none',
+                }}>
+                  {blog.title?.[0]?.toUpperCase()}
+                </span>
               </div>
             )}
 
-            {/* Gradient overlay */}
-            <div className="absolute inset-0 bg-gradient-to-t from-gray-950 via-transparent to-transparent opacity-60" />
+            {/* gradient overlay */}
+            <div style={{
+              position:      'absolute',
+              inset:         0,
+              background:    'linear-gradient(to top, var(--surface) 0%, rgba(0,0,0,0.15) 50%, transparent 100%)',
+              opacity:       0.7,
+              pointerEvents: 'none',
+            }} />
 
-            {/* Category Badge */}
-            <motion.div
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: (index || 0) * 0.1 + 0.2 }}
-              className="absolute top-4 left-4"
-            >
-              <span className="px-3 py-1.5 rounded-full bg-black/40 backdrop-blur-xl text-xs font-semibold text-white border border-white/15">
-                {blog.category}
-              </span>
-            </motion.div>
-
-            {/* Reading time */}
-            <div className="absolute bottom-4 left-4">
-              <span className="flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-black/40 backdrop-blur-md text-white/70 border border-white/10">
-                <FiClock size={10}/>{readingTime}m
-              </span>
+            {/* Category pill */}
+            <div style={{
+              position:       'absolute',
+              top:            14,
+              left:           14,
+              padding:        '4px 11px',
+              borderRadius:   999,
+              background:     'rgba(0,0,0,0.52)',
+              backdropFilter: 'blur(14px)',
+              border:         `1px solid ${accent}40`,
+              fontSize:       10,
+              fontWeight:     700,
+              color:          accent,
+              letterSpacing:  '0.05em',
+              textTransform:  'uppercase',
+            }}>
+              {blog.category}
             </div>
 
-            {/* Actions overlay on hover */}
+            {/* Reading time */}
+            <div style={{
+              position:       'absolute',
+              bottom:         14,
+              left:           14,
+              display:        'flex',
+              alignItems:     'center',
+              gap:            4,
+              padding:        '3px 9px',
+              borderRadius:   999,
+              background:     'rgba(0,0,0,0.52)',
+              backdropFilter: 'blur(14px)',
+              border:         '1px solid rgba(255,255,255,0.08)',
+              fontSize:       10,
+              fontWeight:     500,
+              color:          'rgba(255,255,255,0.8)',
+            }}>
+              <FiClock size={9} />
+              {minutes}m read
+            </div>
+
+            {/* Bookmark + Share — appear on hover */}
             <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: isHovered ? 1 : 0 }}
-              transition={{ duration: 0.3 }}
-              className="absolute top-4 right-4 flex gap-2"
+              initial={{ opacity: 0, y: -4 }}
+              animate={{ opacity: actionsVisible ? 1 : 0, y: actionsVisible ? 0 : -4 }}
+              transition={{ duration: 0.2 }}
+              style={{
+                position: 'absolute',
+                top:      14,
+                right:    14,
+                display:  'flex',
+                gap:      6,
+              }}
             >
-              <motion.button
-                whileHover={{ scale: 1.1 }}
-                                onClick={handleBookmark}
-                className={`p-2.5 rounded-xl backdrop-blur-xl border transition-all duration-300 ${
-                  bookmarked
-                    ? 'bg-violet-500/80 border-violet-400 text-white shadow-lg shadow-violet-500/20'
-                    : 'bg-black/40 border-white/20 text-white/80 hover:bg-black/50'
-                }`}
-              >
-                <FiBookmark size={15} className={bookmarked ? 'fill-white' : ''} />
-              </motion.button>
-              <motion.button
-                whileHover={{ scale: 1.1 }}
-                                onClick={handleShare}
-                className="p-2.5 rounded-xl bg-black/40 backdrop-blur-xl border border-white/20 text-white/80 hover:bg-black/50 transition-all duration-300"
-              >
-                <FiShare2 size={15} />
-              </motion.button>
+              <ActionBtn onClick={handleBookmark} active={bookmarked} activeColor={accent}>
+                <FiBookmark size={13} style={{ fill: bookmarked ? '#fff' : 'none' }} />
+              </ActionBtn>
+              <ActionBtn onClick={handleShare}>
+                <FiShare2 size={13} />
+              </ActionBtn>
             </motion.div>
           </div>
         </Link>
 
-        {/* Content */}
-        <div className="p-6 space-y-4">
-          {/* Author + Date */}
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: (index || 0) * 0.1 + 0.3 }}
-            className="flex items-center gap-3"
-          >
-            {blog.author?.avatar ? (
-              <img
-                src={blog.author.avatar}
-                alt={blog.author.username}
-                className="w-9 h-9 rounded-xl object-cover ring-2 ring-violet-500/30"
-              />
-            ) : (
-              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-violet-500 to-purple-500 flex items-center justify-center text-white text-sm font-bold">
-                {blog.author?.username?.[0]?.toUpperCase()}
-              </div>
-            )}
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-white/90 truncate">
+        {/* ── Card body ── */}
+        <div style={{
+          flex:          1,
+          display:       'flex',
+          flexDirection: 'column',
+          padding:       '18px 20px 16px',
+          gap:           12,
+        }}>
+
+          {/* Author */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+            <div style={{
+              width:        32,
+              height:       32,
+              borderRadius: 9,
+              overflow:     'hidden',
+              flexShrink:   0,
+              background:   `linear-gradient(135deg, ${accent}80, var(--violet))`,
+              display:      'flex',
+              alignItems:   'center',
+              justifyContent: 'center',
+              border:       '1px solid var(--border)',
+            }}>
+              {blog.author?.avatar ? (
+                <img
+                  src={blog.author.avatar}
+                  alt={blog.author.username}
+                  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                />
+              ) : (
+                <span style={{ color: '#fff', fontSize: 12, fontWeight: 700 }}>
+                  {blog.author?.username?.[0]?.toUpperCase()}
+                </span>
+              )}
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-2)', lineHeight: 1.3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {blog.author?.username}
               </p>
-              <p className="text-xs text-white/50">
-                {formatDate(blog.createdAt)}
+              <p style={{ fontSize: 11, color: 'var(--text-3)', lineHeight: 1.3 }}>
+                {fmtDate(blog.createdAt)}
               </p>
             </div>
-          </motion.div>
+          </div>
 
           {/* Title */}
-          <Link to={`/blog/${blog.slug}`}>
-            <motion.h2
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: (index || 0) * 0.1 + 0.4 }}
-              className="text-lg font-bold text-white line-clamp-2 group-hover:text-violet-300 transition-colors duration-300"
-            >
+          <Link to={`/blog/${blog.slug}`} style={{ textDecoration: 'none' }}>
+            <h2 style={{
+              fontSize:           15,
+              fontWeight:         800,
+              lineHeight:         1.4,
+              letterSpacing:      '-0.015em',
+              color:              isHovered ? accent : 'var(--text)',
+              display:            '-webkit-box',
+              WebkitLineClamp:    2,
+              WebkitBoxOrient:    'vertical',
+              overflow:           'hidden',
+              margin:             0,
+              transition:         'color 0.25s ease',
+            }}>
               {blog.title}
-            </motion.h2>
+            </h2>
           </Link>
 
           {/* Excerpt */}
-          <motion.p
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: (index || 0) * 0.1 + 0.5 }}
-            className="text-sm text-white/60 line-clamp-2 leading-relaxed"
-          >
-            {blog.excerpt}
-          </motion.p>
+          {blog.excerpt && (
+            <p style={{
+              fontSize:        13,
+              color:           'var(--text-3)',
+              lineHeight:      1.65,
+              display:         '-webkit-box',
+              WebkitLineClamp: 2,
+              WebkitBoxOrient: 'vertical',
+              overflow:        'hidden',
+              margin:          0,
+              flex:            1,
+            }}>
+              {blog.excerpt}
+            </p>
+          )}
 
-          {/* Footer Stats */}
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: (index || 0) * 0.1 + 0.6 }}
-            className="flex items-center justify-between pt-4 border-t border-white/5"
-          >
-            <div className="flex items-center gap-4">
+          {!blog.excerpt && <div style={{ flex: 1 }} />}
+
+          {/* ── Stats footer ── */}
+          <div style={{
+            display:        'flex',
+            alignItems:     'center',
+            justifyContent: 'space-between',
+            paddingTop:     12,
+            borderTop:      '1px solid var(--border)',
+            marginTop:      'auto',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+
+              {/* Like */}
               <motion.button
-                whileHover={{ scale: 1.1 }}
-                                animate={likeAnim ? { scale: [1, 1.4, 1] } : {}}
+                whileTap={{ scale: 0.88 }}
+                animate={likeAnim ? { scale: [1, 1.45, 1] } : {}}
                 onClick={handleLike}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-medium transition-all duration-300 ${
-                  liked
-                    ? 'bg-red-500/20 text-red-400'
-                    : 'bg-white/5 text-white/60 hover:bg-red-500/10 hover:text-red-400'
-                }`}
+                style={{
+                  display:    'flex',
+                  alignItems: 'center',
+                  gap:        5,
+                  padding:    '5px 9px',
+                  borderRadius: 9,
+                  fontSize:   12,
+                  fontWeight: 500,
+                  border:     'none',
+                  cursor:     'pointer',
+                  background: liked ? 'rgba(239,68,68,0.1)' : 'var(--bg-2)',
+                  color:      liked ? '#ef4444' : 'var(--text-3)',
+                  transition: 'all 0.2s ease',
+                }}
+                onMouseEnter={e => {
+                  if (!liked) { e.currentTarget.style.background = 'rgba(239,68,68,0.08)'; e.currentTarget.style.color = '#ef4444'; }
+                }}
+                onMouseLeave={e => {
+                  if (!liked) { e.currentTarget.style.background = 'var(--bg-2)'; e.currentTarget.style.color = 'var(--text-3)'; }
+                }}
               >
-                <FiHeart size={14} className={liked ? 'fill-red-500' : ''} />
-                <span>{likesCount}</span>
+                <FiHeart size={12} style={{ fill: liked ? '#ef4444' : 'none' }} />
+                {fmtCount(likesCount)}
               </motion.button>
 
-              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm text-white/60">
-                <FiMessageCircle size={14} />
-                <span>{blog.commentsCount || 0}</span>
-              </div>
-
-              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm text-white/60">
-                <FiEye size={14} />
-                <span>{blog.views || 0}</span>
-              </div>
+              <StatChip icon={<FiMessageCircle size={12} />} value={fmtCount(blog.commentsCount || 0)} />
+              <StatChip icon={<FiEye size={12} />}           value={fmtCount(blog.views || 0)} />
             </div>
 
+            {/* Read CTA arrow */}
             <motion.div
-              initial={{ opacity: 0, x: -10 }}
-              animate={{ opacity: isHovered ? 1 : 0, x: isHovered ? 0 : -10 }}
-              transition={{ duration: 0.3 }}
+              animate={{ opacity: isHovered ? 1 : 0, x: isHovered ? 0 : -8 }}
+              transition={{ duration: 0.22 }}
             >
-              <Link
-                to={`/blog/${blog.slug}`}
-                className="flex items-center gap-1 text-sm text-violet-400 hover:text-violet-300 transition-colors"
-              >
-                Read <FiArrowUpRight size={14} />
+              <Link to={`/blog/${blog.slug}`} style={{
+                display:    'flex',
+                alignItems: 'center',
+                gap:        4,
+                padding:    '5px 10px',
+                borderRadius: 9,
+                fontSize:   12,
+                fontWeight: 700,
+                textDecoration: 'none',
+                color:      accent,
+                background: `${accent}12`,
+                border:     `1px solid ${accent}30`,
+                transition: 'all 0.2s ease',
+              }}>
+                Read <FiArrowUpRight size={12} />
               </Link>
             </motion.div>
-          </motion.div>
+          </div>
         </div>
 
-        {/* Animated border gradient */}
+        {/* Bottom accent bar — slides in on hover */}
         <motion.div
-          className="absolute inset-0 rounded-3xl pointer-events-none"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: isHovered ? 1 : 0 }}
-          transition={{ duration: 0.3 }}
+          animate={{ scaleX: isHovered ? 1 : 0 }}
+          initial={{ scaleX: 0 }}
+          transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
           style={{
-            background: 'linear-gradient(135deg, #8b5cf6, #6366f1, #06b6d4)',
-            padding: '2px',
-            mask: 'linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)',
-            maskComposite: 'exclude',
+            position:        'absolute',
+            bottom:          0,
+            left:            0,
+            right:           0,
+            height:          2,
+            background:      `linear-gradient(90deg, ${accent}, var(--violet))`,
+            transformOrigin: 'left',
           }}
         />
       </div>
     </motion.div>
   );
 };
+
+/* ── Sub-components ── */
+const ActionBtn = ({ onClick, children, active = false, activeColor = 'var(--violet)' }) => (
+  <motion.button
+    whileHover={{ scale: 1.1 }}
+    whileTap={{ scale: 0.88 }}
+    onClick={onClick}
+    style={{
+      width:          32,
+      height:         32,
+      padding:        0,
+      borderRadius:   9,
+      backdropFilter: 'blur(14px)',
+      border:         active ? `1px solid ${activeColor}60` : '1px solid rgba(255,255,255,0.12)',
+      background:     active ? activeColor : 'rgba(0,0,0,0.5)',
+      color:          active ? '#fff' : 'rgba(255,255,255,0.85)',
+      cursor:         'pointer',
+      display:        'flex',
+      alignItems:     'center',
+      justifyContent: 'center',
+      transition:     'all 0.2s ease',
+    }}
+  >
+    {children}
+  </motion.button>
+);
+
+const StatChip = ({ icon, value }) => (
+  <div style={{
+    display:    'flex',
+    alignItems: 'center',
+    gap:        4,
+    padding:    '5px 9px',
+    borderRadius: 9,
+    fontSize:   12,
+    color:      'var(--text-3)',
+    background: 'var(--bg-2)',
+  }}>
+    {icon}
+    {value}
+  </div>
+);
 
 export default BlogCard;

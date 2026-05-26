@@ -1,28 +1,9 @@
-# MERN Blog scaffold TODO
+# Task Progress — LenisProvider + GSAP ScrollTrigger sync
 
-## Structure / code
-- [x] Create root folder: `Desktop/mern-blog` with `client/` and `server/`.
-- [x] Add React frontend folder structure + placeholder components/pages.
-- [x] Add Express backend folder structure + placeholder controllers/routes/middleware/models.
-- [x] Add initial `client/src/App.jsx` routing and `client/src/main.jsx` entry.
-- [x] Add placeholder centralized API files in `client/src/api/`.
-
-## Install & run
-- [ ] Install client deps (`npm install` inside `client/`).
-- [ ] Install server deps (`npm install` inside `server/`).
-- [ ] Start server (`npm run dev` inside `server/`).
-- [ ] Start client (`npm run dev` inside `client/`).
-
-## Next backend work (not implemented yet)
-- [ ] Implement auth/blog/user/comment logic in controllers.
-- [ ] Mount routes in `server/app.js`.
-- [ ] Implement JWT verification and role checks.
-- [ ] Add Cloudinary upload middleware integration.
-
-## Next frontend work (not implemented yet)
-- [ ] Create axios instance and wire `authApi/blogApi/userApi`.
-- [ ] Implement pages to call backend APIs.
-- [ ] Implement AuthContext logic for token + user.
-- [ ] Add protected admin checks.
-
+## Steps
+- [x] Create `client/src/components/ui/LenisProvider.jsx` with Lenis + GSAP ScrollTrigger synchronization.
+- [x] Wrap app content in `LenisProvider` inside `client/src/App.jsx`.
+- [ ] Remove/replace `ReadingProgress.jsx` only after confirming there are no imports/usages.
+- [ ] Fix any formatting issues in `client/src/App.jsx` (there is a stray prefix/typo detected: `Herosection · JSX...`).
+- [ ] Run `cd client && npm run build` and verify no runtime/build errors.
 

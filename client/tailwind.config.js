@@ -1,66 +1,89 @@
 /** @type {import('tailwindcss').Config} */
 export default {
-  // ── darkMode: 'class' lets ThemeContext add/remove .dark on <html> ──
+  content: [
+    "./index.html",
+    "./src/**/*.{js,ts,jsx,tsx}",
+  ],
   darkMode: 'class',
-  content: ['./index.html', './src/**/*.{js,jsx,ts,tsx}'],
   theme: {
     extend: {
+
+      /* ─────────────────────────────────────────
+         FIX: font-display class was used in Hero
+         (className="font-display") but never
+         defined here → browser fell back to
+         system condensed font instead of Bebas Neue
+      ───────────────────────────────────────── */
+      fontFamily: {
+        'display': ["'Bebas Neue'", "'Cinzel'", 'sans-serif'],
+        'body':    ["'Inter'",      'system-ui', 'sans-serif'],
+        'sans':    ["'Inter'",      'system-ui', 'sans-serif'],
+      },
+
+      /* ─────────────────────────────────────────
+         Map CSS variable colors into Tailwind
+         so you can use bg-violet, text-cyan etc.
+      ───────────────────────────────────────── */
       colors: {
-        // Resolves every bg-dark-* / text-dark-* reference in your codebase
-        dark: {
-          800: '#111118',
-          900: '#0a0a0f',
-          950: '#05050a',
+        violet: {
+          DEFAULT: 'var(--violet)',
+          2:       'var(--violet-2)',
+        },
+        cyan: {
+          DEFAULT: 'var(--cyan)',
+        },
+        gold: {
+          DEFAULT: 'var(--gold)',
+        },
+        surface: {
+          DEFAULT: 'var(--surface)',
+          2:       'var(--surface-2)',
+        },
+        bg: {
+          DEFAULT: 'var(--bg)',
+          2:       'var(--bg-2)',
+          3:       'var(--bg-3)',
         },
       },
-      fontFamily: {
-        sans: ['Inter', 'system-ui', 'sans-serif'],
+
+      /* ─────────────────────────────────────────
+         Border radius tokens
+      ───────────────────────────────────────── */
+      borderRadius: {
+        '4xl': '2rem',
+        '5xl': '2.5rem',
       },
-      // Smooth spring easing used throughout Framer Motion
-      transitionTimingFunction: {
-        spring: 'cubic-bezier(0.16, 1, 0.3, 1)',
+
+      /* ─────────────────────────────────────────
+         Animation utilities
+      ───────────────────────────────────────── */
+      animation: {
+        'shimmer':      'shimmer 1.6s infinite',
+        'float':        'float 6s ease-in-out infinite',
+        'glow-pulse':   'glow-pulse 3s ease-in-out infinite',
       },
+      keyframes: {
+        shimmer: {
+          '0%':   { backgroundPosition:  '200% 0' },
+          '100%': { backgroundPosition: '-200% 0' },
+        },
+        float: {
+          '0%, 100%': { transform: 'translateY(0px)' },
+          '50%':      { transform: 'translateY(-12px)' },
+        },
+        'glow-pulse': {
+          '0%, 100%': { opacity: '0.4' },
+          '50%':      { opacity: '1'   },
+        },
+      },
+
+      /* ─────────────────────────────────────────
+         Backdrop blur utilities
+      ───────────────────────────────────────── */
       backdropBlur: {
         xs: '4px',
       },
-      boxShadow: {
-        'glow-violet': '0 0 24px rgba(139,92,246,0.35)',
-        'glow-cyan':   '0 0 24px rgba(6,182,212,0.35)',
-        'card':        '0 4px 24px rgba(0,0,0,0.18)',
-        'card-hover':  '0 12px 40px rgba(0,0,0,0.28)',
-        'navbar':      '0 8px 32px rgba(0,0,0,0.3), 0 0 0 1px rgba(255,255,255,0.05), inset 0 1px 0 rgba(255,255,255,0.05)',
-      },
-      keyframes: {
-        gradient: {
-          '0%, 100%': { backgroundPosition: '0% 50%' },
-          '50%':      { backgroundPosition: '100% 50%' },
-        },
-        'fade-in': {
-          from: { opacity: 0, transform: 'translateY(12px)' },
-          to:   { opacity: 1, transform: 'translateY(0)' },
-        },
-        shimmer: {
-          '0%':   { backgroundPosition: '200% 0' },
-          '100%': { backgroundPosition: '-200% 0' },
-        },
-      },
-      animation: {
-        gradient:  'gradient 15s ease infinite',
-        'fade-in': 'fade-in 0.5s cubic-bezier(0.16,1,0.3,1) forwards',
-        shimmer:   'shimmer 1.5s infinite',
-      },
     },
   },
-  plugins: [
-    // ── no-scrollbar utility (replaces custom CSS) ──
-    function ({ addUtilities }) {
-      addUtilities({
-        '.no-scrollbar': {
-          '-ms-overflow-style': 'none',
-          'scrollbar-width':    'none',
-          '&::-webkit-scrollbar': { display: 'none' },
-        },
-      });
-    },
-  ],
+  plugins: [],
 };
