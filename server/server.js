@@ -13,19 +13,12 @@ connectDB();
 
 const app = express();
 
-// ── CORS ────────────────────────────────────────────
-const allowedOrigins = [
-  'http://localhost:5173',
-  'http://localhost:5174',
-  'http://localhost:3000',
-  process.env.CLIENT_URL, // your deployed frontend URL
-];
-
 app.use((req, res, next) => {
   const allowed = [
     'http://localhost:5173',
     'http://localhost:5174',
     'http://localhost:3000',
+    'https://blog-verse-xslt.vercel.app',
     process.env.CLIENT_URL,
   ].filter(Boolean);
 
