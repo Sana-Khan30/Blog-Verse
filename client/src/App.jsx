@@ -25,6 +25,7 @@ const AppContent = () => {
 
   return (
     <LenisProvider>
+      <ScrollToTop /> 
       {/* Global UI Elements */}
       <CustomCursor /> 
       <ScrollProgress />
