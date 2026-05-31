@@ -108,19 +108,34 @@ body::after {
 .dark::after {
   opacity: 0.045;
 }
-
 /* ── Cursor behavior ── */
-/* Hide default cursor on desktop, but keep normal cursor on buttons/inputs for accessibility. */
 @media (min-width: 1024px) {
   html, body, * { cursor: none !important; }
   html button, html [role="button"], html a {
-    cursor: pointer !important;
+    cursor: none !important;
   }
   html input, html textarea, html select {
-    cursor: text !important;
+    cursor: none !important;
   }
 }
 
+/* Text Selection Fix */
+::selection {
+  background: rgba(124, 58, 237, 0.30) !important;
+  color: inherit !important;
+}
+::-moz-selection {
+  background: rgba(124, 58, 237, 0.30) !important;
+  color: inherit !important;
+}
+.blog-prose ::selection {
+  background: rgba(124, 58, 237, 0.30) !important;
+  color: inherit !important;
+}
+.blog-prose ::-moz-selection {
+  background: rgba(124, 58, 237, 0.30) !important;
+  color: inherit !important;
+}
 
 /* ══════════════════════════════════════════════════════
    CUSTOM CURSOR STYLES
