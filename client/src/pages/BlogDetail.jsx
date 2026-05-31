@@ -44,7 +44,7 @@ const useTextHighlight = (containerRef) => {
       setHighlight({
         text: selectedText,
         x: rect.left + rect.width / 2,
-        y: rect.top + window.scrollY - 12,
+        y: rect.top - 12,
       });
     };
 
@@ -91,10 +91,10 @@ const HighlightTooltip = ({ highlight, onClose }) => {
       animate={{ opacity: 1, y: 0, scale: 1 }}
       exit={{ opacity: 0, y: 8, scale: 0.92 }}
       transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
-      style={{
-        position: 'absolute',
-        left: highlight.x,
-        top: highlight.y,
+     style={{
+  position: 'fixed',
+  left: highlight.x,
+  top: highlight.y,
         transform: 'translateX(-50%) translateY(-100%)',
         zIndex: 9990,
         display: 'flex',
@@ -359,7 +359,11 @@ const BlogDetail = () => {
       {/* ── Highlight Tooltip (portal-style absolute) ── */}
       <AnimatePresence>
         {highlight && (
-          <div data-highlight-tooltip style={{ position: 'absolute', top: 0, left: 0, width: '100%', pointerEvents: 'none', zIndex: 9990 }}>
+          <div data-highlight-tooltip style={{ 
+  position: 'fixed', top: 0, left: 0, 
+  width: '100%', height: '100%',
+  pointerEvents: 'none', zIndex: 9990 
+}}>
             <HighlightTooltip highlight={highlight} onClose={clearHighlight} />
           </div>
         )}
