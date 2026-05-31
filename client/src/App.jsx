@@ -7,6 +7,7 @@ import Layout from "./components/common/Layout.jsx";
 import ProtectedRoute from "./routes/ProtectedRoute.jsx";
 import ScrollProgress from "./components/ui/ScrollProgress.jsx";
 import CustomCursor from "./components/interactive/CustomCursor.jsx";
+import ScrollToTop from "./components/ScrollToTop.jsx"; 
 import { LenisProvider } from "./components/ui/LenisProvider.jsx";
 
 import AdminPanel from "./pages/AdminPanel.jsx";
