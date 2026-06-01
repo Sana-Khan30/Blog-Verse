@@ -6,13 +6,6 @@
 [![Backend](https://img.shields.io/badge/API-blog--verse--theta.vercel.app-06b6d4?style=for-the-badge&logo=vercel)](https://blog-verse-theta.vercel.app)
 [![License](https://img.shields.io/badge/License-MIT-a78bfa?style=for-the-badge)](LICENSE)
 
----
-
-## 📸 Preview
-
-![Blog-Verse Hero](https://blog-verse-xslt.vercel.app/og-preview.png)
-
----
 
 ## ✨ Features
 
