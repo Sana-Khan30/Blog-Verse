@@ -1,12 +1,9 @@
 import axios from 'axios';
 
-// Ek baar base URL set karo — har jagah repeat nahi karna
 const API = axios.create({
-  baseURL: import.meta.env.VITE_API_URL, // http://localhost:5000/api
+  baseURL: import.meta.env.VITE_API_URL,
 });
 
-// REQUEST INTERCEPTOR
-// Har request se pehle automatically JWT token attach karo
 API.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('token');
@@ -18,15 +15,20 @@ API.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-// RESPONSE INTERCEPTOR
-// Token expire ho jaye toh automatically logout karo
 API.interceptors.response.use(
   (response) => response,
   (error) => {
+    // ← ONLY 401 pe logout karo, aur sirf agar token exist karta ho
     if (error.response?.status === 401) {
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
-      window.location.href = '/login';
+      const token = localStorage.getItem('token');
+      if (token) {
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        // Loop avoid karo — sirf agar login page pe nahi ho
+        if (!window.location.pathname.includes('/login')) {
+          window.location.href = '/login';
+        }
+      }
     }
     return Promise.reject(error);
   }
