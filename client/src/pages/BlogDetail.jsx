@@ -8,69 +8,20 @@ import toast from 'react-hot-toast';
 import {
   FiHeart, FiMessageCircle, FiEye, FiTrash2,
   FiEdit, FiArrowLeft, FiBookmark,
-  FiShare2, FiCheck, FiUser, FiCopy, FiTwitter
+  FiShare2, FiCheck, FiUser, FiCopy
 } from 'react-icons/fi';
 
 /* ══════════════════════════════════════════
-   TEXT HIGHLIGHT HOOK
-   Detects user text selection inside article
-══════════════════════════════════════════ */
-const useTextHighlight = (containerRef) => {
-  const [highlight, setHighlight] = useState(null);
-  // highlight = { text, x, y } | null
-
-  useEffect(() => {
-    const handleSelectionChange = () => {
-      const selection = window.getSelection();
-
-      if (!selection || selection.isCollapsed || !selection.toString().trim()) {
-        setHighlight(null);
-        return;
-      }
-
-      const selectedText = selection.toString().trim();
-      if (selectedText.length < 3) { setHighlight(null); return; }
-
-      // Make sure selection is inside our article container
-      if (!containerRef.current) return;
-      const range = selection.getRangeAt(0);
-      if (!containerRef.current.contains(range.commonAncestorContainer)) {
-        setHighlight(null);
-        return;
-      }
-
-      // Position tooltip above the selection
-      const rect = range.getBoundingClientRect();
-      setHighlight({
-        text: selectedText,
-        x: rect.left + rect.width / 2,
-        y: rect.top - 12,
-      });
-    };
-
-    document.addEventListener('selectionchange', handleSelectionChange);
-    return () => document.removeEventListener('selectionchange', handleSelectionChange);
-  }, [containerRef]);
-
-  const clearHighlight = useCallback(() => {
-    setHighlight(null);
-    window.getSelection()?.removeAllRanges();
-  }, []);
-
-  return { highlight, clearHighlight };
-};
-
-/* ══════════════════════════════════════════
    HIGHLIGHT TOOLTIP COMPONENT
+   (Fixed: was named HighlightTool but used as HighlightTooltip)
 ══════════════════════════════════════════ */
-const HighlightTool = () => {
-  const [visible, setVisible]       = useState(false);
-  const [position, setPosition]     = useState({ x: 0, y: 0 });
+const HighlightTooltip = () => {
+  const [visible, setVisible]           = useState(false);
+  const [position, setPosition]         = useState({ x: 0, y: 0 });
   const [selectedText, setSelectedText] = useState('');
 
   useEffect(() => {
     const handleSelection = () => {
-      // Small delay — selection complete hone do
       setTimeout(() => {
         const selection = window.getSelection();
         const text = selection?.toString().trim();
@@ -79,7 +30,6 @@ const HighlightTool = () => {
           const range = selection.getRangeAt(0);
           const rect  = range.getBoundingClientRect();
 
-          // Viewport ke andar rakho
           const x = Math.min(
             rect.left + rect.width / 2,
             window.innerWidth - 160
@@ -97,7 +47,6 @@ const HighlightTool = () => {
     };
 
     const handleClick = (e) => {
-      // Toolbar click pe hide mat karo
       if (e.target.closest('.highlight-toolbar')) return;
       if (!window.getSelection()?.toString().trim()) {
         setVisible(false);
@@ -123,14 +72,23 @@ const HighlightTool = () => {
       animate={{ opacity: 1, y: 0, scale: 1 }}
       exit={{ opacity: 0, y: 8, scale: 0.9 }}
       transition={{ duration: 0.15 }}
-      className="highlight-toolbar fixed z-[9999] flex items-center gap-1 rounded-xl shadow-2xl px-2 py-1.5"
+      className="highlight-toolbar"
       style={{
+        position:  'absolute',
         left:      position.x,
         top:       position.y,
         transform: 'translateX(-50%)',
+        zIndex:    9999,
+        display:   'flex',
+        alignItems: 'center',
+        gap: 1,
+        borderRadius: '12px',
+        padding: '4px 6px',
         background: 'rgba(17,17,24,0.97)',
-        border:     '1px solid rgba(255,255,255,0.1)',
+        border: '1px solid rgba(255,255,255,0.1)',
         backdropFilter: 'blur(20px)',
+        boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
+        pointerEvents: 'all',
       }}
     >
       {/* Copy */}
@@ -143,34 +101,65 @@ const HighlightTool = () => {
           setVisible(false);
           window.getSelection()?.removeAllRanges();
         }}
-        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-white/80 hover:bg-white/10 hover:text-white transition-all"
+        style={{
+          display: 'flex', alignItems: 'center', gap: 6,
+          padding: '6px 12px', borderRadius: 8,
+          background: 'none', border: 'none',
+          color: 'rgba(255,255,255,0.75)',
+          fontSize: 12, fontWeight: 500,
+          cursor: 'pointer',
+          transition: 'all 0.15s ease',
+        }}
+        onMouseEnter={e => {
+          e.currentTarget.style.background = 'rgba(255,255,255,0.08)';
+          e.currentTarget.style.color = '#fff';
+        }}
+        onMouseLeave={e => {
+          e.currentTarget.style.background = 'none';
+          e.currentTarget.style.color = 'rgba(255,255,255,0.75)';
+        }}
       >
         <FiCopy size={13} />
         Copy
       </motion.button>
 
       {/* Divider */}
-      <div className="w-px h-4 bg-white/10" />
+      <div style={{ width: 1, height: 16, background: 'rgba(255,255,255,0.1)' }} />
 
       {/* Quote */}
       <motion.button
         whileHover={{ scale: 1.1 }}
         whileTap={{ scale: 0.9 }}
         onClick={() => {
-          const quote = `"${selectedText}"`;
-          navigator.clipboard.writeText(quote);
+          navigator.clipboard.writeText(`"${selectedText}"`);
           toast.success('Quote copied!', { icon: '💬' });
           setVisible(false);
           window.getSelection()?.removeAllRanges();
         }}
-        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-violet-400 hover:bg-violet-500/10 hover:text-violet-300 transition-all"
+        style={{
+          display: 'flex', alignItems: 'center', gap: 6,
+          padding: '6px 12px', borderRadius: 8,
+          background: 'none', border: 'none',
+          color: '#a78bfa',
+          fontSize: 12, fontWeight: 500,
+          cursor: 'pointer',
+          transition: 'all 0.15s ease',
+        }}
+        onMouseEnter={e => {
+          e.currentTarget.style.background = 'rgba(124,58,237,0.12)';
+          e.currentTarget.style.color = '#c4b5fd';
+        }}
+        onMouseLeave={e => {
+          e.currentTarget.style.background = 'none';
+          e.currentTarget.style.color = '#a78bfa';
+        }}
       >
-        <span className="text-sm font-bold">"</span>
+        <span style={{ fontSize: 14, fontWeight: 800, lineHeight: 1 }}>"</span>
         Quote
       </motion.button>
 
       {/* Divider */}
-      <div className="w-px h-4 bg-white/10" />
+      <div style={{ width: 1, height: 16, background: 'rgba(255,255,255,0.1)' }} />
 
       {/* Share */}
       <motion.button
@@ -179,35 +168,47 @@ const HighlightTool = () => {
         onClick={async () => {
           try {
             if (navigator.share) {
-              await navigator.share({
-                text: selectedText,
-                url: window.location.href,
-              });
+              await navigator.share({ text: selectedText, url: window.location.href });
             } else {
-              await navigator.clipboard.writeText(
-                `"${selectedText}" — ${window.location.href}`
-              );
+              await navigator.clipboard.writeText(`"${selectedText}" — ${window.location.href}`);
               toast.success('Link + quote copied!');
             }
           } catch {}
           setVisible(false);
+          window.getSelection()?.removeAllRanges();
         }}
-        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-cyan-400 hover:bg-cyan-500/10 hover:text-cyan-300 transition-all"
+        style={{
+          display: 'flex', alignItems: 'center', gap: 6,
+          padding: '6px 12px', borderRadius: 8,
+          background: 'none', border: 'none',
+          color: '#67e8f9',
+          fontSize: 12, fontWeight: 500,
+          cursor: 'pointer',
+          transition: 'all 0.15s ease',
+        }}
+        onMouseEnter={e => {
+          e.currentTarget.style.background = 'rgba(6,182,212,0.1)';
+          e.currentTarget.style.color = '#a5f3fc';
+        }}
+        onMouseLeave={e => {
+          e.currentTarget.style.background = 'none';
+          e.currentTarget.style.color = '#67e8f9';
+        }}
       >
         <FiShare2 size={13} />
         Share
       </motion.button>
 
-      {/* Arrow indicator */}
-      <div
-        className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-3 h-3 rotate-45"
-        style={{
-          background: 'rgba(17,17,24,0.97)',
-          border: '1px solid rgba(255,255,255,0.1)',
-          borderTop: 'none',
-          borderLeft: 'none',
-        }}
-      />
+      {/* Arrow */}
+      <div style={{
+        position: 'absolute',
+        bottom: -5, left: '50%',
+        transform: 'translateX(-50%) rotate(45deg)',
+        width: 10, height: 10,
+        background: 'rgba(17,17,24,0.97)',
+        borderRight: '1px solid rgba(255,255,255,0.1)',
+        borderBottom: '1px solid rgba(255,255,255,0.1)',
+      }} />
     </motion.div>
   );
 };
@@ -241,7 +242,6 @@ const BlogDetail = () => {
   const { user }   = useAuth();
   const navigate   = useNavigate();
   const articleRef = useRef(null);
-  const contentRef = useRef(null);
 
   const [blog,         setBlog]         = useState(null);
   const [comments,     setComments]     = useState([]);
@@ -253,9 +253,6 @@ const BlogDetail = () => {
   const [bookmarked,   setBookmarked]   = useState(false);
   const [readProgress, setReadProgress] = useState(0);
   const [copySuccess,  setCopySuccess]  = useState(false);
-
-  /* ── Text highlight ── */
-  const { highlight, clearHighlight } = useTextHighlight(contentRef);
 
   /* ── Reading progress ── */
   useEffect(() => {
@@ -270,17 +267,6 @@ const BlogDetail = () => {
     window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
   }, [blog]);
-
-  /* ── Close highlight on outside click ── */
-  useEffect(() => {
-    const handler = (e) => {
-      if (highlight && !e.target.closest('[data-highlight-tooltip]')) {
-        clearHighlight();
-      }
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, [highlight, clearHighlight]);
 
   const fetchBlog = useCallback(async () => {
     setLoading(true);
@@ -374,7 +360,7 @@ const BlogDetail = () => {
   const isAdmin  = user?.role === 'admin';
 
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--bg)' }}>
+    <div style={{ minHeight: '100vh', background: 'var(--bg)', position: 'relative' }}>
 
       {/* ── Reading Progress Bar ── */}
       <motion.div
@@ -388,17 +374,17 @@ const BlogDetail = () => {
         }}
       />
 
-      {/* ── Highlight Tooltip (portal-style absolute) ── */}
+      {/* ── Highlight Tooltip ── */}
+      {/* 
+        Fixed: 
+        1. Removed the broken wrapper div with pointerEvents none 
+           (it was blocking tooltip interactions)
+        2. HighlightTooltip now manages its own absolute positioning
+           using window.scrollY so it stays on content, not viewport
+        3. Removed dead useTextHighlight hook usage
+      */}
       <AnimatePresence>
-        {highlight && (
-          <div data-highlight-tooltip style={{ 
-  position: 'fixed', top: 0, left: 0, 
-  width: '100%', height: '100%',
-  pointerEvents: 'none', zIndex: 9990 
-}}>
-            <HighlightTooltip highlight={highlight} onClose={clearHighlight} />
-          </div>
-        )}
+        <HighlightTooltip />
       </AnimatePresence>
 
       {/* ── Article ── */}
@@ -522,9 +508,7 @@ const BlogDetail = () => {
                 style={{
                   display: 'flex', alignItems: 'center', gap: 6,
                   padding: '8px 14px', borderRadius: 12,
-                  background: bookmarked
-                    ? 'rgba(124,58,237,0.1)'
-                    : 'var(--bg-2)',
+                  background: bookmarked ? 'rgba(124,58,237,0.1)' : 'var(--bg-2)',
                   border: bookmarked
                     ? '1px solid rgba(124,58,237,0.25)'
                     : '1px solid var(--border)',
@@ -577,7 +561,6 @@ const BlogDetail = () => {
                 border: '1px solid var(--border)',
                 fontSize: 12, fontWeight: 500,
                 color: 'var(--text-2)',
-                transition: 'all 0.2s ease',
                 cursor: 'default',
               }}>
                 #{tag}
@@ -586,15 +569,13 @@ const BlogDetail = () => {
           </motion.div>
         )}
 
-        {/* ── Article Content (highlight target) ── */}
+        {/* ── Article Content ── */}
         <motion.div
-          ref={contentRef}
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.25 }}
           style={{
             marginBottom: 48,
-            /* Prose typography using CSS vars */
             fontSize: 17,
             lineHeight: 1.8,
             color: 'var(--text-2)',
@@ -620,8 +601,6 @@ const BlogDetail = () => {
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-
-            {/* Like */}
             <motion.button
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
@@ -630,9 +609,7 @@ const BlogDetail = () => {
                 display: 'flex', alignItems: 'center', gap: 8,
                 padding: '10px 18px', borderRadius: 12,
                 background: liked ? 'rgba(239,68,68,0.1)' : 'var(--bg-2)',
-                border: liked
-                  ? '1px solid rgba(239,68,68,0.25)'
-                  : '1px solid var(--border)',
+                border: liked ? '1px solid rgba(239,68,68,0.25)' : '1px solid var(--border)',
                 color: liked ? '#ef4444' : 'var(--text-2)',
                 fontSize: 14, fontWeight: 600,
                 cursor: 'pointer',
@@ -643,34 +620,29 @@ const BlogDetail = () => {
               {likesCount} {likesCount === 1 ? 'Like' : 'Likes'}
             </motion.button>
 
-            {/* Comments count */}
             <div style={{
               display: 'flex', alignItems: 'center', gap: 8,
               padding: '10px 18px', borderRadius: 12,
               background: 'var(--bg-2)',
               border: '1px solid var(--border)',
-              color: 'var(--text-2)',
-              fontSize: 14,
+              color: 'var(--text-2)', fontSize: 14,
             }}>
               <FiMessageCircle size={17} />
               {comments.length} {comments.length === 1 ? 'Comment' : 'Comments'}
             </div>
 
-            {/* Views */}
             <div style={{
               display: 'flex', alignItems: 'center', gap: 8,
               padding: '10px 18px', borderRadius: 12,
               background: 'var(--bg-2)',
               border: '1px solid var(--border)',
-              color: 'var(--text-2)',
-              fontSize: 14,
+              color: 'var(--text-2)', fontSize: 14,
             }}>
               <FiEye size={17} />
               {blog.views || 0}
             </div>
           </div>
 
-          {/* Edit / Delete */}
           {(isAuthor || isAdmin) && (
             <div style={{ display: 'flex', gap: 8 }}>
               {isAuthor && (
@@ -723,7 +695,6 @@ const BlogDetail = () => {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.35 }}
         >
-          {/* Section header */}
           <div style={{
             display: 'flex', alignItems: 'center', gap: 12,
             marginBottom: 28,
@@ -742,16 +713,12 @@ const BlogDetail = () => {
             </span>
           </div>
 
-          {/* Add comment */}
           {user ? (
             <form onSubmit={handleComment} style={{ marginBottom: 32 }}>
               <div style={{ display: 'flex', gap: 14 }}>
                 {user.avatar ? (
                   <img src={user.avatar} alt={user.username}
-                    style={{
-                      width: 38, height: 38, borderRadius: 10,
-                      objectFit: 'cover', flexShrink: 0,
-                    }} />
+                    style={{ width: 38, height: 38, borderRadius: 10, objectFit: 'cover', flexShrink: 0 }} />
                 ) : (
                   <div style={{
                     width: 38, height: 38, borderRadius: 10, flexShrink: 0,
@@ -762,7 +729,6 @@ const BlogDetail = () => {
                     {user.username[0].toUpperCase()}
                   </div>
                 )}
-
                 <div style={{ flex: 1 }}>
                   <textarea
                     value={commentText}
@@ -770,16 +736,10 @@ const BlogDetail = () => {
                     placeholder="Share your thoughts..."
                     rows={4}
                     style={{
-                      width: '100%',
-                      padding: '14px 18px',
-                      borderRadius: 14,
-                      background: 'var(--bg-2)',
-                      border: '1px solid var(--border)',
-                      color: 'var(--text)',
-                      fontSize: 14, lineHeight: 1.6,
-                      resize: 'vertical',
-                      outline: 'none',
-                      fontFamily: 'inherit',
+                      width: '100%', padding: '14px 18px', borderRadius: 14,
+                      background: 'var(--bg-2)', border: '1px solid var(--border)',
+                      color: 'var(--text)', fontSize: 14, lineHeight: 1.6,
+                      resize: 'vertical', outline: 'none', fontFamily: 'inherit',
                       transition: 'border-color 0.2s ease, box-shadow 0.2s ease',
                     }}
                     onFocus={e => {
@@ -797,12 +757,9 @@ const BlogDetail = () => {
                     whileHover={{ scale: commenting ? 1 : 1.02 }}
                     whileTap={{ scale: 0.97 }}
                     style={{
-                      marginTop: 10,
-                      padding: '10px 24px',
-                      borderRadius: 12,
+                      marginTop: 10, padding: '10px 24px', borderRadius: 12,
                       background: 'linear-gradient(135deg, var(--violet), #6d28d9)',
-                      color: '#fff',
-                      fontSize: 14, fontWeight: 700,
+                      color: '#fff', fontSize: 14, fontWeight: 700,
                       border: 'none', cursor: commenting ? 'not-allowed' : 'pointer',
                       opacity: (commenting || !commentText.trim()) ? 0.5 : 1,
                       boxShadow: '0 4px 15px var(--glow)',
@@ -819,11 +776,8 @@ const BlogDetail = () => {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               style={{
-                marginBottom: 32,
-                padding: '28px 24px',
-                borderRadius: 16,
-                background: 'var(--bg-2)',
-                border: '1px solid var(--border)',
+                marginBottom: 32, padding: '28px 24px', borderRadius: 16,
+                background: 'var(--bg-2)', border: '1px solid var(--border)',
                 textAlign: 'center',
               }}
             >
@@ -836,8 +790,7 @@ const BlogDetail = () => {
                   padding: '10px 24px', borderRadius: 12,
                   background: 'linear-gradient(135deg, var(--violet), #6d28d9)',
                   color: '#fff', fontSize: 14, fontWeight: 700,
-                  textDecoration: 'none',
-                  boxShadow: '0 4px 15px var(--glow)',
+                  textDecoration: 'none', boxShadow: '0 4px 15px var(--glow)',
                 }}
               >
                 <FiUser size={16} /> Login to Comment
@@ -845,17 +798,14 @@ const BlogDetail = () => {
             </motion.div>
           )}
 
-          {/* Comments list */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             {comments.length === 0 ? (
               <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 style={{
-                  textAlign: 'center', padding: '48px 24px',
-                  borderRadius: 16,
-                  background: 'var(--bg-2)',
-                  border: '1px solid var(--border)',
+                  textAlign: 'center', padding: '48px 24px', borderRadius: 16,
+                  background: 'var(--bg-2)', border: '1px solid var(--border)',
                 }}
               >
                 <span style={{ fontSize: 48, display: 'block', marginBottom: 12 }}>💬</span>
@@ -871,10 +821,8 @@ const BlogDetail = () => {
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: i * 0.05 }}
                   style={{
-                    padding: '18px 20px',
-                    borderRadius: 16,
-                    background: 'var(--bg-2)',
-                    border: '1px solid var(--border)',
+                    padding: '18px 20px', borderRadius: 16,
+                    background: 'var(--bg-2)', border: '1px solid var(--border)',
                     transition: 'border-color 0.2s ease',
                   }}
                   onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--border-2)'; }}
@@ -883,10 +831,7 @@ const BlogDetail = () => {
                   <div style={{ display: 'flex', gap: 14 }}>
                     {comment.author?.avatar ? (
                       <img src={comment.author.avatar} alt={comment.author.username}
-                        style={{
-                          width: 36, height: 36, borderRadius: 10,
-                          objectFit: 'cover', flexShrink: 0,
-                        }} />
+                        style={{ width: 36, height: 36, borderRadius: 10, objectFit: 'cover', flexShrink: 0 }} />
                     ) : (
                       <div style={{
                         width: 36, height: 36, borderRadius: 10, flexShrink: 0,
@@ -897,12 +842,10 @@ const BlogDetail = () => {
                         {comment.author?.username?.[0]?.toUpperCase()}
                       </div>
                     )}
-
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{
                         display: 'flex', alignItems: 'center',
-                        justifyContent: 'space-between',
-                        marginBottom: 6,
+                        justifyContent: 'space-between', marginBottom: 6,
                       }}>
                         <span style={{ fontWeight: 700, color: 'var(--text)', fontSize: 14 }}>
                           {comment.author?.username}
@@ -917,8 +860,7 @@ const BlogDetail = () => {
                               onClick={() => handleDeleteComment(comment._id)}
                               style={{
                                 background: 'none', border: 'none',
-                                color: 'var(--text-3)',
-                                cursor: 'pointer',
+                                color: 'var(--text-3)', cursor: 'pointer',
                                 transition: 'color 0.2s ease',
                                 display: 'flex', padding: 2,
                               }}
@@ -930,10 +872,7 @@ const BlogDetail = () => {
                           )}
                         </div>
                       </div>
-                      <p style={{
-                        color: 'var(--text-2)', fontSize: 14,
-                        lineHeight: 1.6, margin: 0,
-                      }}>
+                      <p style={{ color: 'var(--text-2)', fontSize: 14, lineHeight: 1.6, margin: 0 }}>
                         {comment.content}
                       </p>
                     </div>
