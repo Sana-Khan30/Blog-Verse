@@ -63,119 +63,151 @@ const useTextHighlight = (containerRef) => {
 /* ══════════════════════════════════════════
    HIGHLIGHT TOOLTIP COMPONENT
 ══════════════════════════════════════════ */
-const HighlightTooltip = ({ highlight, onClose }) => {
-  const [copied, setCopied] = useState(false);
+const HighlightTool = () => {
+  const [visible, setVisible]       = useState(false);
+  const [position, setPosition]     = useState({ x: 0, y: 0 });
+  const [selectedText, setSelectedText] = useState('');
 
-  const copyQuote = async () => {
-    try {
-      await navigator.clipboard.writeText(`"${highlight.text}"`);
-      setCopied(true);
-      toast.success('Quote copied!', { icon: '📋' });
-      setTimeout(() => { setCopied(false); onClose(); }, 1200);
-    } catch {
-      toast.error('Failed to copy');
-    }
-  };
+  useEffect(() => {
+    const handleSelection = () => {
+      // Small delay — selection complete hone do
+      setTimeout(() => {
+        const selection = window.getSelection();
+        const text = selection?.toString().trim();
 
-  const tweetQuote = () => {
-    const tweet = encodeURIComponent(
-      `"${highlight.text.slice(0, 200)}"\n\n— via ${window.location.href}`
-    );
-    window.open(`https://twitter.com/intent/tweet?text=${tweet}`, '_blank');
-    onClose();
-  };
+        if (text && text.length > 2) {
+          const range = selection.getRangeAt(0);
+          const rect  = range.getBoundingClientRect();
+
+          // Viewport ke andar rakho
+          const x = Math.min(
+            rect.left + rect.width / 2,
+            window.innerWidth - 160
+          );
+          const y = rect.top + window.scrollY - 55;
+
+          setPosition({ x: Math.max(x, 80), y });
+          setSelectedText(text);
+          setVisible(true);
+        } else {
+          setVisible(false);
+          setSelectedText('');
+        }
+      }, 10);
+    };
+
+    const handleClick = (e) => {
+      // Toolbar click pe hide mat karo
+      if (e.target.closest('.highlight-toolbar')) return;
+      if (!window.getSelection()?.toString().trim()) {
+        setVisible(false);
+      }
+    };
+
+    document.addEventListener('mouseup', handleSelection);
+    document.addEventListener('touchend', handleSelection);
+    document.addEventListener('mousedown', handleClick);
+
+    return () => {
+      document.removeEventListener('mouseup', handleSelection);
+      document.removeEventListener('touchend', handleSelection);
+      document.removeEventListener('mousedown', handleClick);
+    };
+  }, []);
+
+  if (!visible || !selectedText) return null;
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 8, scale: 0.92 }}
+      initial={{ opacity: 0, y: 8, scale: 0.9 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
-      exit={{ opacity: 0, y: 8, scale: 0.92 }}
-      transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
-     style={{
-  position: 'fixed',
-  left: highlight.x,
-  top: highlight.y,
-        transform: 'translateX(-50%) translateY(-100%)',
-        zIndex: 9990,
-        display: 'flex',
-        alignItems: 'center',
-        gap: 4,
-        padding: '6px 8px',
-        borderRadius: 12,
-        background: 'var(--surface)',
-        border: '1px solid var(--border-2)',
+      exit={{ opacity: 0, y: 8, scale: 0.9 }}
+      transition={{ duration: 0.15 }}
+      className="highlight-toolbar fixed z-[9999] flex items-center gap-1 rounded-xl shadow-2xl px-2 py-1.5"
+      style={{
+        left:      position.x,
+        top:       position.y,
+        transform: 'translateX(-50%)',
+        background: 'rgba(17,17,24,0.97)',
+        border:     '1px solid rgba(255,255,255,0.1)',
         backdropFilter: 'blur(20px)',
-        boxShadow: '0 8px 30px rgba(0,0,0,0.2), 0 0 0 1px rgba(124,58,237,0.1)',
-        whiteSpace: 'nowrap',
-        pointerEvents: 'auto',
       }}
     >
-      {/* Arrow */}
-      <div style={{
-        position: 'absolute',
-        bottom: -5, left: '50%',
-        transform: 'translateX(-50%) rotate(45deg)',
-        width: 10, height: 10,
-        background: 'var(--surface)',
-        border: '1px solid var(--border-2)',
-        borderTop: 'none', borderLeft: 'none',
-      }} />
-
-      {/* Copy quote */}
+      {/* Copy */}
       <motion.button
-        whileHover={{ scale: 1.05 }}
-        whileTap={{ scale: 0.95 }}
-        onClick={copyQuote}
-        style={{
-          display: 'flex', alignItems: 'center', gap: 5,
-          padding: '5px 10px', borderRadius: 8,
-          background: copied ? 'rgba(34,197,94,0.12)' : 'var(--bg-2)',
-          border: '1px solid var(--border)',
-          color: copied ? '#22c55e' : 'var(--text)',
-          fontSize: 12, fontWeight: 600,
-          cursor: 'pointer',
-          transition: 'all 0.2s ease',
+        whileHover={{ scale: 1.1 }}
+        whileTap={{ scale: 0.9 }}
+        onClick={() => {
+          navigator.clipboard.writeText(selectedText);
+          toast.success('Copied!', { icon: '📋' });
+          setVisible(false);
+          window.getSelection()?.removeAllRanges();
         }}
+        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-white/80 hover:bg-white/10 hover:text-white transition-all"
       >
-        {copied ? <FiCheck size={12} /> : <FiCopy size={12} />}
-        {copied ? 'Copied!' : 'Copy'}
+        <FiCopy size={13} />
+        Copy
       </motion.button>
 
-      {/* Tweet */}
+      {/* Divider */}
+      <div className="w-px h-4 bg-white/10" />
+
+      {/* Quote */}
       <motion.button
-        whileHover={{ scale: 1.05 }}
-        whileTap={{ scale: 0.95 }}
-        onClick={tweetQuote}
-        style={{
-          display: 'flex', alignItems: 'center', gap: 5,
-          padding: '5px 10px', borderRadius: 8,
-          background: 'rgba(29,161,242,0.1)',
-          border: '1px solid rgba(29,161,242,0.2)',
-          color: '#1da1f2',
-          fontSize: 12, fontWeight: 600,
-          cursor: 'pointer',
-          transition: 'all 0.2s ease',
+        whileHover={{ scale: 1.1 }}
+        whileTap={{ scale: 0.9 }}
+        onClick={() => {
+          const quote = `"${selectedText}"`;
+          navigator.clipboard.writeText(quote);
+          toast.success('Quote copied!', { icon: '💬' });
+          setVisible(false);
+          window.getSelection()?.removeAllRanges();
         }}
+        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-violet-400 hover:bg-violet-500/10 hover:text-violet-300 transition-all"
       >
-        <FiTwitter size={12} />
-        Tweet
+        <span className="text-sm font-bold">"</span>
+        Quote
       </motion.button>
 
-      {/* Selected text preview */}
-      <div style={{
-        maxWidth: 180,
-        padding: '5px 10px',
-        borderRadius: 8,
-        background: 'rgba(124,58,237,0.08)',
-        border: '1px solid rgba(124,58,237,0.15)',
-        fontSize: 11,
-        color: 'var(--text-2)',
-        overflow: 'hidden',
-        textOverflow: 'ellipsis',
-        whiteSpace: 'nowrap',
-      }}>
-        "{highlight.text.slice(0, 40)}{highlight.text.length > 40 ? '…' : ''}"
-      </div>
+      {/* Divider */}
+      <div className="w-px h-4 bg-white/10" />
+
+      {/* Share */}
+      <motion.button
+        whileHover={{ scale: 1.1 }}
+        whileTap={{ scale: 0.9 }}
+        onClick={async () => {
+          try {
+            if (navigator.share) {
+              await navigator.share({
+                text: selectedText,
+                url: window.location.href,
+              });
+            } else {
+              await navigator.clipboard.writeText(
+                `"${selectedText}" — ${window.location.href}`
+              );
+              toast.success('Link + quote copied!');
+            }
+          } catch {}
+          setVisible(false);
+        }}
+        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-cyan-400 hover:bg-cyan-500/10 hover:text-cyan-300 transition-all"
+      >
+        <FiShare2 size={13} />
+        Share
+      </motion.button>
+
+      {/* Arrow indicator */}
+      <div
+        className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-3 h-3 rotate-45"
+        style={{
+          background: 'rgba(17,17,24,0.97)',
+          border: '1px solid rgba(255,255,255,0.1)',
+          borderTop: 'none',
+          borderLeft: 'none',
+        }}
+      />
     </motion.div>
   );
 };
