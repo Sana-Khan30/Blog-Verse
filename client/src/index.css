@@ -805,3 +805,20 @@ body::after {
     backdrop-filter:blur(14px);
   }
 }
+/* Text selection — visible color */
+::selection {
+  background: rgba(124, 58, 237, 0.35) !important;
+  color: inherit !important;
+}
+
+::-moz-selection {
+  background: rgba(124, 58, 237, 0.35) !important;
+  color: inherit !important;
+}
+
+/* Blog content selection */
+.blog-content::selection,
+.blog-content *::selection {
+  background: rgba(124, 58, 237, 0.4) !important;
+  color: white !important;
+}
